@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<!-- SEO & Open Graph Meta Tags -->
+<title>Sakuku — Uang, Tautan, dan Kuis</title>
+<meta name="description" content="Sakuku adalah aplikasi web cerdas untuk mencatat pengeluaran, menyimpan tautan, dan bermain kuis secara lokal di saku Anda." />
+<meta property="og:title" content="Sakuku — Uang, Tautan, dan Kuis" />
+<meta property="og:description" content="Aplikasi pencatat pengeluaran dan tautan sederhana." />
+<meta property="og:type" content="website" />
+
+<!-- Preload Assets untuk Performa -->
+<link rel="preload" href="assets/script.js" as="script">
+<link rel="preload" href="https://unpkg.com/@tabler/icons-webfont/dist/tabler-icons.min.css" as="style">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont/dist/tabler-icons.min.css">
+
+<!-- Catatan: Untuk produksi nyata, ganti Tailwind CDN dengan Tailwind CLI/Vite untuk compile CSS statis -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#1C2321',
+          paper: '#EEF2F0',
+          tarum: { DEFAULT: '#33415C', light: '#4C5C7D', dark: '#232E42' },
+          brass: { DEFAULT: '#C68B3A', light: '#DDAD6C' },
+          sage:  { DEFAULT: '#4F7942', light: '#7FA36E' },
+          clay:  { DEFAULT: '#A8442E', light: '#C97457' },
+        },
+        fontFamily: {
+          display: ['Fraunces', 'serif'],
+          sans: ['Manrope', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+
+<style type="text/tailwindcss">
+  @layer base {
+    :root { color-scheme: light; }
+    body { @apply bg-paper text-ink; }
+  }
+  @layer components {
+    .tab-btn {
+      @apply relative px-4 py-3 text-sm font-medium text-ink/70 border-b-2 border-transparent
+             transition-colors motion-reduce:transition-none hover:text-ink;
+    }
+    .tab-btn.is-active { @apply text-ink border-current; }
+    .tab-btn[data-tab="expense"].is-active  { @apply text-brass border-brass; }
+    .tab-btn[data-tab="bookmark"].is-active { @apply text-tarum border-tarum; }
+    .tab-btn[data-tab="quiz"].is-active     { @apply text-sage border-sage; }
+
+    .card { @apply bg-white/70 border border-ink/10 rounded-xl p-5; }
+
+    .field-label { @apply block text-sm font-medium text-ink/80 mb-1; }
+    .field-input {
+      /* Peningkatan rasio kontras placeholder untuk aksesibilitas Axe */
+      @apply w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/60
+             focus:outline-none focus:ring-2 focus:ring-tarum/40 focus:border-tarum
+             transition motion-reduce:transition-none;
+    }
+    .form-error { @apply text-sm text-clay min-h-[1.25rem]; }
+
+    .btn-primary {
+      @apply inline-flex items-center justify-center gap-2 rounded-lg bg-tarum px-4 py-2 text-sm font-medium text-white
+             hover:bg-tarum-dark transition motion-reduce:transition-none
+             focus:outline-none focus:ring-2 focus:ring-tarum/40 focus:ring-offset-2 focus:ring-offset-paper;
+    }
+    .btn-secondary {
+      @apply inline-flex items-center justify-center gap-2 rounded-lg border border-ink/20 px-4 py-2 text-sm font-medium text-ink/90
+             hover:bg-ink/5 transition motion-reduce:transition-none
+             focus:outline-none focus:ring-2 focus:ring-ink/20 disabled:opacity-40 disabled:pointer-events-none;
+    }
+    .btn-danger {
+      @apply inline-flex items-center justify-center gap-2 rounded-lg bg-clay px-4 py-2 text-sm font-medium text-white
+             hover:bg-clay/90 transition motion-reduce:transition-none
+             focus:outline-none focus:ring-2 focus:ring-clay/40 focus:ring-offset-2 focus:ring-offset-paper;
+    }
+    .icon-btn {
+      @apply inline-flex h-8 w-8 items-center justify-center rounded-md text-ink/70 hover:bg-ink/10 hover:text-ink
+             transition motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-tarum/40;
+    }
+    .badge { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap; }
+
+    .expense-row, .bookmark-card {
+      @apply flex items-center justify-between gap-4 rounded-lg border border-ink/10 bg-white px-4 py-3;
+    }
+
+    .modal-backdrop { @apply fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-4; }
+    .modal-panel { @apply w-full max-w-md rounded-xl bg-paper p-6 shadow-xl border border-ink/10 max-h-[90vh] overflow-y-auto; }
+
+    .quiz-option {
+      @apply w-full text-left rounded-lg border border-ink/15 bg-white px-4 py-3 text-sm text-ink
+             hover:border-tarum/50 transition motion-reduce:transition-none
+             focus:outline-none focus:ring-2 focus:ring-tarum/40 disabled:cursor-not-allowed;
+    }
+    .quiz-option.is-correct { @apply border-sage bg-sage/10 text-sage; }
+    .quiz-option.is-wrong   { @apply border-clay bg-clay/10 text-clay; }
+    .quiz-feedback { @apply text-sm font-medium min-h-[1.25rem]; }
+    .quiz-feedback.is-correct { @apply text-sage; }
+    .quiz-feedback.is-wrong   { @apply text-clay; }
+  }
+</style>
+</head>
+
+<body class="min-h-screen font-sans">
+<noscript>
+  <div class="bg-clay text-white p-4 text-center font-medium">
+    Aplikasi ini memerlukan JavaScript agar dapat berfungsi dengan baik. Harap aktifkan JavaScript di peramban Anda.
+  </div>
+</noscript>
+
+<header class="border-b border-ink/10">
+  <div class="mx-auto max-w-3xl px-4 pt-6 pb-2">
+    <h1 class="font-display italic text-3xl text-ink">Sakuku</h1>
+    <!-- Opasitas ditingkatkan ke /70 untuk kontras yang lebih baik -->
+    <p class="text-sm text-ink/70 mt-1">Uang, tautan, dan sedikit kuis — semua di satu saku.</p>
+  </div>
+  <nav class="mx-auto max-w-3xl px-4 flex gap-2 overflow-x-auto" role="tablist" aria-label="Navigasi fitur">
+    <button type="button" class="tab-btn" id="tab-expense" data-tab="expense" role="tab" aria-selected="true" aria-controls="panel-expense">
+      <i class="ti ti-wallet mr-1.5" aria-hidden="true"></i>Uang
+    </button>
+    <button type="button" class="tab-btn" id="tab-bookmark" data-tab="bookmark" role="tab" aria-selected="false" aria-controls="panel-bookmark">
+      <i class="ti ti-bookmark mr-1.5" aria-hidden="true"></i>Tautan
+    </button>
+    <button type="button" class="tab-btn" id="tab-quiz" data-tab="quiz" role="tab" aria-selected="false" aria-controls="panel-quiz">
+      <i class="ti ti-help-hexagon mr-1.5" aria-hidden="true"></i>Kuis
+    </button>
+  </nav>
+</header>
+
+<main class="mx-auto max-w-3xl px-4 py-8">
+
+  <!-- ================= PANEL: EXPENSE TRACKER ================= -->
+  <section id="panel-expense" data-panel="expense" role="tabpanel" aria-labelledby="tab-expense" class="space-y-6">
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="card">
+        <h2 class="text-sm text-ink/70 font-medium">Pemasukan</h2>
+        <p id="summary-income" class="font-display text-2xl text-sage mt-1">Rp0</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm text-ink/70 font-medium">Pengeluaran</h2>
+        <p id="summary-expense" class="font-display text-2xl text-clay mt-1">Rp0</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm text-ink/70 font-medium">Saldo</h2>
+        <p id="summary-balance" class="font-display text-2xl text-tarum mt-1">Rp0</p>
+      </div>
+    </div>
+
+    <form id="form-expense" class="card space-y-4">
+      <h2 class="font-display text-lg text-ink">Catat transaksi baru</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="field-label" for="expense-title">Judul / deskripsi</label>
+          <input class="field-input" id="expense-title" name="title" type="text" placeholder="Mis. Makan siang" required />
+        </div>
+        <div>
+          <label class="field-label" for="expense-category">Kategori</label>
+          <select class="field-input" id="expense-category" name="category" required></select>
+        </div>
+        <div>
+          <label class="field-label" for="expense-type">Tipe</label>
+          <select class="field-input" id="expense-type" name="type" required>
+            <option value="expense">Pengeluaran</option>
+            <option value="income">Pemasukan</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="expense-amount">Jumlah (Rp)</label>
+          <input class="field-input" id="expense-amount" name="amount" type="number" min="1" step="1" placeholder="0" required />
+        </div>
+        <div>
+          <label class="field-label" for="expense-date">Tanggal</label>
+          <input class="field-input" id="expense-date" name="date" type="date" required />
+        </div>
+      </div>
+      <!-- aria-live disematkan agar pesan error dibaca langsung oleh screen reader -->
+      <p class="form-error" aria-live="polite"></p>
+      <button type="submit" class="btn-primary"><i class="ti ti-plus" aria-hidden="true"></i>Tambah transaksi</button>
+    </form>
+
+    <div class="card space-y-4">
+      <h2 class="font-display text-lg text-ink">Daftar transaksi</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <input class="field-input sm:col-span-2" id="expense-search" type="text" placeholder="Cari judul transaksi..." aria-label="Cari judul transaksi" />
+        <select class="field-input" id="expense-filter-type" aria-label="Filter tipe transaksi">
+          <option value="all">Semua tipe</option>
+          <option value="income">Pemasukan</option>
+          <option value="expense">Pengeluaran</option>
+        </select>
+        <select class="field-input" id="expense-filter-category" aria-label="Filter kategori transaksi"></select>
+      </div>
+      <div class="flex justify-end">
+        <select class="field-input w-auto" id="expense-sort" aria-label="Urutkan transaksi">
+          <option value="newest">Urutkan: Terbaru</option>
+          <option value="oldest">Urutkan: Terlama</option>
+          <option value="amount-desc">Urutkan: Jumlah terbesar</option>
+          <option value="amount-asc">Urutkan: Jumlah terkecil</option>
+        </select>
+      </div>
+
+      <div id="expense-list" class="space-y-2"></div>
+      <p id="expense-empty" class="text-sm text-ink/70 text-center py-6">
+        Belum ada transaksi. Tambahkan yang pertama lewat form di atas.
+      </p>
+      <p id="expense-empty-filtered" class="hidden text-sm text-ink/70 text-center py-6" aria-live="polite">
+        Tidak ada transaksi yang cocok dengan pencarian/filter ini.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= PANEL: BOOKMARK MANAGER ================= -->
+  <section id="panel-bookmark" data-panel="bookmark" role="tabpanel" aria-labelledby="tab-bookmark" class="hidden space-y-6">
+
+    <form id="form-bookmark" class="card space-y-4">
+      <h2 class="font-display text-lg text-ink">Simpan tautan baru</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="field-label" for="bookmark-title">Nama</label>
+          <input class="field-input" id="bookmark-title" name="title" type="text" placeholder="Mis. Dokumentasi MDN" required />
+        </div>
+        <div>
+          <label class="field-label" for="bookmark-category">Kategori / tag</label>
+          <input class="field-input" id="bookmark-category" name="category" type="text" placeholder="Mis. Belajar" required />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="field-label" for="bookmark-url">URL</label>
+          <input class="field-input" id="bookmark-url" name="url" type="text" placeholder="https://..." required />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="field-label" for="bookmark-note">Catatan (opsional)</label>
+          <textarea class="field-input" id="bookmark-note" name="note" rows="2" placeholder="Catatan singkat..."></textarea>
+        </div>
+      </div>
+      <p class="form-error" aria-live="polite"></p>
+      <button type="submit" class="btn-primary"><i class="ti ti-plus" aria-hidden="true"></i>Simpan tautan</button>
+    </form>
+
+    <div class="card space-y-4">
+      <h2 class="font-display text-lg text-ink">Daftar tautan</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <input class="field-input sm:col-span-2" id="bookmark-search" type="text" placeholder="Cari nama / URL / kategori..." aria-label="Cari tautan" />
+        <select class="field-input" id="bookmark-sort" aria-label="Urutkan tautan">
+          <option value="title-asc">Urutkan: Judul A–Z</option>
+          <option value="title-desc">Urutkan: Judul Z–A</option>
+          <option value="newest">Urutkan: Terbaru</option>
+        </select>
+      </div>
+
+      <div id="bookmark-list" class="space-y-2"></div>
+      <p id="bookmark-empty" class="text-sm text-ink/70 text-center py-6">
+        Belum ada tautan tersimpan. Tambahkan yang pertama lewat form di atas.
+      </p>
+      <p id="bookmark-empty-filtered" class="hidden text-sm text-ink/70 text-center py-6" aria-live="polite">
+        Tidak ada tautan yang cocok dengan pencarian ini.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= PANEL: QUIZ ================= -->
+  <section id="panel-quiz" data-panel="quiz" role="tabpanel" aria-labelledby="tab-quiz" class="hidden space-y-6">
+    <div class="card">
+
+      <div id="quiz-screen-start" class="text-center py-8 space-y-4">
+        <i class="ti ti-help-hexagon text-4xl text-sage" aria-hidden="true"></i>
+        <h2 class="font-display text-xl text-ink">Kuis Dasar Web</h2>
+        <p id="quiz-highscore-display" class="text-sm text-ink/70" aria-live="polite">Belum ada rekor. Yuk mulai!</p>
+        <button type="button" id="btn-quiz-start" class="btn-primary mx-auto">
+          <i class="ti ti-player-play" aria-hidden="true"></i>Mulai kuis
+        </button>
+      </div>
+
+      <div id="quiz-screen-question" class="hidden space-y-4">
+        <div class="flex items-center justify-between text-sm text-ink/70">
+          <span id="quiz-progress" aria-live="polite"></span>
+          <span id="quiz-timer-text" aria-live="polite"></span>
+        </div>
+        <div class="h-1.5 rounded-full bg-ink/10 overflow-hidden" aria-hidden="true">
+          <div id="quiz-timer-bar" class="h-full bg-sage transition-[width] duration-1000 ease-linear motion-reduce:transition-none" style="width:100%"></div>
+        </div>
+        <h3 id="quiz-question-text" class="font-display text-lg text-ink" aria-live="polite"></h3>
+        <div id="quiz-options-list" class="space-y-2" role="group" aria-label="Pilihan jawaban"></div>
+        <p id="quiz-feedback" class="quiz-feedback" aria-live="polite"></p>
+        <div class="flex justify-end">
+          <button type="button" id="btn-quiz-next" class="btn-secondary" disabled>
+            Soal berikutnya<i class="ti ti-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="quiz-screen-result" class="hidden text-center py-8 space-y-3">
+        <h2 class="text-sm text-ink/70">Skor akhir kamu</h2>
+        <p id="quiz-result-score" class="font-display text-4xl text-tarum" aria-live="polite"></p>
+        <p id="quiz-result-message" class="text-sm text-ink/70" aria-live="polite"></p>
+        <button type="button" id="btn-quiz-restart" class="btn-primary mx-auto">
+          <i class="ti ti-refresh" aria-hidden="true"></i>Main lagi
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<footer class="border-t border-ink/10 py-6 text-center text-xs text-ink/70">
+  Sakuku — proyek studi kasus Pemrograman Aplikasi Berbasis Web
+</footer>
+
+<!-- ================= MODAL: KONFIRMASI HAPUS ================= -->
+<div id="modal-confirm" class="modal modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-title">
+  <div class="modal-panel">
+    <h3 id="modal-confirm-title" class="font-display text-lg text-ink mb-2">Konfirmasi hapus</h3>
+    <p id="modal-confirm-message" class="text-sm text-ink/80 mb-6"></p>
+    <div class="flex justify-end gap-3">
+      <button type="button" class="btn-secondary" data-close-modal>Batal</button>
+      <button type="button" id="modal-confirm-btn" class="btn-danger">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: UBAH TRANSAKSI ================= -->
+<div id="modal-expense-edit" class="modal modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-expense-title">
+  <div class="modal-panel">
+    <h3 id="modal-expense-title" class="font-display text-lg text-ink mb-4">Ubah transaksi</h3>
+    <form id="form-expense-edit" class="space-y-4">
+      <input type="hidden" id="edit-expense-id" />
+      <div>
+        <label class="field-label" for="edit-expense-title">Judul / deskripsi</label>
+        <input class="field-input" id="edit-expense-title" name="title" type="text" required />
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="field-label" for="edit-expense-category">Kategori</label>
+          <select class="field-input" id="edit-expense-category" name="category" required></select>
+        </div>
+        <div>
+          <label class="field-label" for="edit-expense-amount">Jumlah (Rp)</label>
+          <input class="field-input" id="edit-expense-amount" name="amount" type="number" min="1" step="1" required />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="field-label" for="edit-expense-type">Tipe</label>
+          <select class="field-input" id="edit-expense-type" name="type" required>
+            <option value="expense">Pengeluaran</option>
+            <option value="income">Pemasukan</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="edit-expense-date">Tanggal</label>
+          <input class="field-input" id="edit-expense-date" name="date" type="date" required />
+        </div>
+      </div>
+      <p class="form-error" aria-live="polite"></p>
+      <div class="flex justify-end gap-3">
+        <button type="button" class="btn-secondary" data-close-modal>Batal</button>
+        <button type="submit" class="btn-primary">Simpan perubahan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: UBAH BOOKMARK ================= -->
+<div id="modal-bookmark-edit" class="modal modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-bookmark-title">
+  <div class="modal-panel">
+    <h3 id="modal-bookmark-title" class="font-display text-lg text-ink mb-4">Ubah tautan</h3>
+    <form id="form-bookmark-edit" class="space-y-4">
+      <input type="hidden" id="edit-bookmark-id" />
+      <div>
+        <label class="field-label" for="edit-bookmark-title">Nama</label>
+        <input class="field-input" id="edit-bookmark-title" name="title" type="text" required />
+      </div>
+      <div>
+        <label class="field-label" for="edit-bookmark-url">URL</label>
+        <input class="field-input" id="edit-bookmark-url" name="url" type="text" required />
+      </div>
+      <div>
+        <label class="field-label" for="edit-bookmark-category">Kategori / tag</label>
+        <input class="field-input" id="edit-bookmark-category" name="category" type="text" required />
+      </div>
+      <div>
+        <label class="field-label" for="edit-bookmark-note">Catatan (opsional)</label>
+        <textarea class="field-input" id="edit-bookmark-note" name="note" rows="2"></textarea>
+      </div>
+      <p class="form-error" aria-live="polite"></p>
+      <div class="flex justify-end gap-3">
+        <button type="button" class="btn-secondary" data-close-modal>Batal</button>
+        <button type="submit" class="btn-primary">Simpan perubahan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>
